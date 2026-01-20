@@ -9,8 +9,9 @@ const app = express();
 // Allow frontend origin
 app.use(
   cors({
-    origin: "https://awaisjotasigninup.netlify.app/", // Vite frontend
-    credentials: true, // allow cookies (important for refresh token)
+    origin: "https://awaisjotasigninup.netlify.app", // remove trailing slash
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
   })
 );
 app.use(express.json());
