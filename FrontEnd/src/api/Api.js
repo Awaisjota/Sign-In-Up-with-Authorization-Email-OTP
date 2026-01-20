@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL:
+    "https://sign-in-up-with-authorization-email-otp-production.up.railway.app/",
   withCredentials: true,
 });
 
