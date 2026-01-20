@@ -9,7 +9,7 @@ const app = express();
 // Allow frontend origin
 app.use(
   cors({
-    origin: "http://localhost:5173", // Vite frontend
+    origin: "https://awaisjotasigninup.netlify.app/", // Vite frontend
     credentials: true, // allow cookies (important for refresh token)
   })
 );
