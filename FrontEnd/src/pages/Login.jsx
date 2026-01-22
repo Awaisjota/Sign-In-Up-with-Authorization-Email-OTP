@@ -3,7 +3,6 @@ import {
   clearError,
   loginUser,
   selectAuthError,
-  selectAuthRole,
   selectAuthStatus,
 } from "../features/authSlice";
 import Input from "../components/Input";
@@ -16,7 +15,7 @@ const Login = () => {
   const navigate = useNavigate();
   const error = useSelector(selectAuthError);
   const status = useSelector(selectAuthStatus);
-  const role = useSelector(selectAuthRole);
+
   useEffect(() => {
     return () => dispatch(clearError());
   }, []);
@@ -26,12 +25,15 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await dispatch(
+      const res = await dispatch(
         loginUser({
           email: e.target.email.value,
           password: e.target.password.value,
         })
       ).unwrap();
+
+      const role = res.user.role;
+
       if (role === "admin") {
         navigate("/admin");
       } else if (role === "user") {

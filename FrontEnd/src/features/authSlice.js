@@ -28,6 +28,8 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const res = await loginServices(credentials);
+      localStorage.setItem("token", res.data.accessToken);
+      localStorage.setItem("role", res.data.user.role);
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data || { message: "Login failed" });
