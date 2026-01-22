@@ -9,7 +9,7 @@ const app = express();
 // Allow frontend origin
 app.use(
   cors({
-    origin: "https://awaisjotasigninup.netlify.app", // remove trailing slash
+    origin: ["https://awaisjotasigninup.netlify.app", "http://localhost:5173"], // remove trailing slash
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })

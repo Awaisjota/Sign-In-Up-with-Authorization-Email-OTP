@@ -6,26 +6,32 @@ import {
   generateRefreshToken,
 } from "../utils/generateToken.js";
 import { sendEmail } from "../utils/sendEmail.js";
+
 // -------------------- REGISTER --------------------
 export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // ✅ FIX: check email correctly
-    const exists = await User.findOne({ email: email });
+    const exists = await User.findOne({ email });
     if (exists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
     const hash = await bcrypt.hash(password, 10);
+    const newUser = await User.create({ name, email, password: hash });
 
-    await User.create({
-      name,
-      email,
-      password: hash,
+    // 🔹 Fix: Send user + accessToken
+    const accessToken = generateAccessToken(newUser);
+
+    res.status(201).json({
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role || "user",
+      },
+      accessToken,
     });
-
-    res.status(201).json({ message: "Registered successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -36,7 +42,6 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // ✅ FIX: select password field explicitly
     const user = await User.findOne({ email }).select("+password");
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
@@ -51,12 +56,21 @@ export const login = async (req, res) => {
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // ✅ only https in prod
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    res.json({ accessToken });
+    // 🔹 Fix: Send user + accessToken
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role || "user",
+      },
+      accessToken,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -75,7 +89,15 @@ export const refreshToken = async (req, res) => {
       return res.sendStatus(403);
 
     const newAccessToken = generateAccessToken(user);
-    res.json({ accessToken: newAccessToken });
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role || "user",
+      },
+      accessToken: newAccessToken,
+    });
   } catch (err) {
     res.status(403).json({ message: "Invalid refresh token" });
   }
@@ -84,7 +106,7 @@ export const refreshToken = async (req, res) => {
 // -------------------- LOGOUT ALL --------------------
 export const logoutAll = async (req, res) => {
   try {
-    req.user.tokenVersion += 1; // invalidate all previous refresh tokens
+    req.user.tokenVersion += 1;
     req.user.refreshToken = null;
     await req.user.save();
 
@@ -102,11 +124,9 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.sendStatus(404);
 
-    // ✅ Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
-    user.otp = otp.toString(); // always save as string
+    user.otp = otp.toString();
     user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
-
     await user.save();
 
     await sendEmail(
@@ -115,7 +135,6 @@ export const forgotPassword = async (req, res) => {
       `Hello ${user.name},\n\n Your OTP is : ${otp}\n\n It will expire in 10 minutes`
     );
 
-    // ✅ In real app: send OTP via email
     res.json({ message: "OTP sent to email", otp });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -136,7 +155,7 @@ export const resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
     user.otp = null;
     user.otpExpiry = null;
-    user.tokenVersion += 1; // invalidate previous refresh tokens
+    user.tokenVersion += 1; // invalidate old tokens
     await user.save();
 
     res.json({ message: "Password reset successful" });

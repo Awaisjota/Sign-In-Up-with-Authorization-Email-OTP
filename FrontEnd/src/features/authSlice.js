@@ -1,30 +1,36 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import api from "../api/Api";
+import {
+  forgotServices,
+  loginServices,
+  registerServices,
+  resetServices,
+} from "../services/authServices";
 
 /* =======================
    THUNKS
 ======================= */
-
 export const registerUser = createAsyncThunk(
   "auth/register",
   async (data, { rejectWithValue }) => {
     try {
-      const res = await api.post("/auth/register", data);
-      return res.data.message || "Registration successful";
+      const res = await registerServices(data);
+      return res.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Register failed");
+      return rejectWithValue(
+        err.response?.data || { message: "Register failed" }
+      );
     }
   }
 );
 
 export const loginUser = createAsyncThunk(
   "auth/login",
-  async (data, { rejectWithValue }) => {
+  async (credentials, { rejectWithValue }) => {
     try {
-      const res = await api.post("/auth/login", data);
-      return res.data.accessToken;
+      const res = await loginServices(credentials);
+      return res.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Login failed");
+      return rejectWithValue(err.response?.data || { message: "Login failed" });
     }
   }
 );
@@ -33,10 +39,12 @@ export const forgotPassword = createAsyncThunk(
   "auth/forgot",
   async (email, { rejectWithValue }) => {
     try {
-      const res = await api.post("/auth/forgot-password", { email });
-      return res.data.message || "OTP sent to email";
+      const res = await forgotServices({ email });
+      return res.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "OTP send failed");
+      return rejectWithValue(
+        err.response?.data || { message: "OTP send failed" }
+      );
     }
   }
 );
@@ -45,10 +53,10 @@ export const resetPassword = createAsyncThunk(
   "auth/reset",
   async (data, { rejectWithValue }) => {
     try {
-      const res = await api.post("/auth/reset-password", data);
-      return res.data.message || "Password reset successful";
+      const res = await resetServices(data);
+      return res.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Reset failed");
+      return rejectWithValue(err.response?.data || { message: "Reset failed" });
     }
   }
 );
@@ -56,13 +64,12 @@ export const resetPassword = createAsyncThunk(
 /* =======================
    SLICE
 ======================= */
-
 const initialState = {
-  token: null,
-  isAuth: false,
-  loading: false,
+  user: JSON.parse(localStorage.getItem("user")) || null,
+  token: localStorage.getItem("token") || null,
+  role: localStorage.getItem("role") || null,
+  status: "idle",
   error: null,
-  success: null,
 };
 
 const authSlice = createSlice({
@@ -70,84 +77,87 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     logout: (state) => {
+      state.user = null;
       state.token = null;
-      state.isAuth = false;
+      state.role = null;
+      state.status = "idle";
       state.error = null;
-      state.success = null;
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
     },
-    clearStatus: (state) => {
+    clearError: (state) => {
       state.error = null;
-      state.success = null;
     },
   },
   extraReducers: (builder) => {
-    /* ===== LOGIN ===== */
+    // LOGIN
     builder
       .addCase(loginUser.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = null;
+        state.status = "loading";
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.token = action.payload;
-        state.isAuth = true;
-        state.success = "Login successful";
+        state.status = "succeeded";
+        state.user = action.payload.user;
+        state.token = action.payload.accessToken;
+        state.role = action.payload.user.role || "user";
+        localStorage.setItem("token", state.token);
+        localStorage.setItem("user", JSON.stringify(state.user));
+        localStorage.setItem("role", state.role);
       })
       .addCase(loginUser.rejected, (state, action) => {
-        state.loading = false;
+        state.status = "failed";
         state.error = action.payload;
       });
 
-    /* ===== REGISTER ===== */
+    // REGISTER
     builder
       .addCase(registerUser.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = null;
+        state.status = "loading";
       })
       .addCase(registerUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = action.payload;
+        state.status = "succeeded";
       })
       .addCase(registerUser.rejected, (state, action) => {
-        state.loading = false;
+        state.status = "failed";
         state.error = action.payload;
       });
 
-    /* ===== FORGOT PASSWORD ===== */
+    // FORGOT
     builder
       .addCase(forgotPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = null;
+        state.status = "loading";
       })
-      .addCase(forgotPassword.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = action.payload;
+      .addCase(forgotPassword.fulfilled, (state) => {
+        state.status = "succeeded";
+        state.error = null;
       })
       .addCase(forgotPassword.rejected, (state, action) => {
-        state.loading = false;
+        state.status = "failed";
         state.error = action.payload;
       });
 
-    /* ===== RESET PASSWORD ===== */
+    // RESET
     builder
       .addCase(resetPassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = null;
+        state.status = "loading";
       })
-      .addCase(resetPassword.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = action.payload;
+      .addCase(resetPassword.fulfilled, (state) => {
+        state.status = "succeeded";
+        state.error = null;
       })
       .addCase(resetPassword.rejected, (state, action) => {
-        state.loading = false;
+        state.status = "failed";
         state.error = action.payload;
       });
   },
 });
 
-export const { logout, clearStatus } = authSlice.actions;
+export const { logout, clearError } = authSlice.actions;
 export default authSlice.reducer;
+
+export const selectUser = (state) => state.auth.user;
+export const selectToken = (state) => state.auth.token;
+export const selectAuthRole = (state) => state.auth.role;
+export const selectAuthStatus = (state) => state.auth.status;
+export const selectAuthError = (state) => state.auth.error;

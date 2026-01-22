@@ -3,9 +3,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashborad";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
+import Dashboard from "./pages/Dashborad";
 const App = () => {
   return (
     <Routes>
@@ -17,7 +17,16 @@ const App = () => {
       <Route
         path="/"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["user"]}>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
             <Dashboard />
           </ProtectedRoute>
         }
